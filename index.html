@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de IMC · Gym</title>
+<style>
+  :root {
+    --bg: #0d0f12;
+    --panel: rgba(22, 25, 30, .88);
+    --line: #2b3038;
+    --text: #eef1f5;
+    --muted: #9aa3af;
+    --accent: #ff5a1f;
+    --c-bajo: #3b9cff;
+    --c-normal: #2ecc71;
+    --c-sobre: #f4c20d;
+    --c-ob1: #ff8a1f;
+    --c-ob2: #ff4d3d;
+    --c-ob3: #b3122b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  /* ---------- Fondo de pesas ---------- */
+  .fondo { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 0%, #1b2027 0%, var(--bg) 70%); }
+  .fondo svg.pesa { position: absolute; color: #fff; opacity: .07; }
+  .fondo .barra { position: absolute; left: 50%; bottom: -30px; width: min(1400px, 140vw);
+    transform: translateX(-50%); opacity: .12; color: #fff; }
+  .fondo .piso { position: absolute; inset: auto 0 0 0; height: 35vh;
+    background: linear-gradient(to top, rgba(255, 90, 31, .12), transparent); }
+
+  /* ---------- Layout ---------- */
+  main { position: relative; z-index: 1; max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { text-align: center; margin-bottom: 28px; }
+  h1 { margin: 0; font-size: clamp(28px, 6vw, 46px); letter-spacing: .04em; text-transform: uppercase; }
+  h1 span { color: var(--accent); }
+  header p { color: var(--muted); margin: 6px 0 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px;
+    backdrop-filter: blur(6px); }
+  .card h2 { margin: 0 0 16px; font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .full { grid-column: 1 / -1; }
+
+  /* ---------- Formulario ---------- */
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input, select { width: 100%; padding: 11px 12px; background: #11141a; color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; font-size: 16px; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .fila { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .campo { margin-bottom: 14px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { flex: 1; padding: 10px; background: #11141a; color: var(--muted); border: 0; cursor: pointer; font-size: 14px; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+  .btn { width: 100%; padding: 14px; margin-top: 6px; background: var(--accent); color: #fff; border: 0;
+    border-radius: 8px; font-size: 16px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.sec { background: transparent; border: 1px solid var(--line); color: var(--muted); font-size: 13px; padding: 8px; width: auto; margin: 0; }
+  .error { color: #ff7b6b; font-size: 14px; min-height: 20px; margin-top: 10px; }
+  [hidden] { display: none !important; }
+
+  /* ---------- Resultado ---------- */
+  .imc-valor { font-size: clamp(52px, 12vw, 84px); font-weight: 800; line-height: 1; }
+  .categoria { display: inline-block; margin-top: 8px; padding: 4px 12px; border-radius: 99px; font-weight: 600; color: #0d0f12; }
+  .medidor { position: relative; height: 16px; border-radius: 8px; margin: 34px 0 6px; display: flex; overflow: visible; }
+  .medidor div { height: 100%; }
+  .medidor div:first-child { border-radius: 8px 0 0 8px; }
+  .medidor div:nth-child(6) { border-radius: 0 8px 8px 0; }
+  .aguja { position: absolute; top: -10px; width: 4px; height: 36px; background: #fff; border-radius: 2px;
+    transform: translateX(-50%); transition: left .7s cubic-bezier(.2, .9, .3, 1); box-shadow: 0 0 8px rgba(255,255,255,.6); }
+  .escala { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .datos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px; }
+  .dato { background: #11141a; border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .dato small { display: block; color: var(--muted); font-size: 12px; }
+  .dato b { font-size: 20px; }
+  .consejo { margin-top: 16px; padding: 12px 14px; border-left: 3px solid var(--accent); background: #11141a; border-radius: 0 8px 8px 0; font-size: 14px; color: #cfd5dd; }
+  .vacio { color: var(--muted); text-align: center; padding: 40px 0; }
+
+  /* ---------- Historial ---------- */
+  .cab-hist { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .cab-hist h2 { margin: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; }
+  .punto { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  .tabla-wrap { overflow-x: auto; }
+  canvas { width: 100%; height: 120px; display: block; margin-bottom: 14px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+
+<!-- Símbolos SVG reutilizables -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="mancuerna" viewBox="0 0 240 80">
+      <g fill="currentColor">
+        <rect x="6"   y="22" width="18" height="36" rx="4"/>
+        <rect x="26"  y="8"  width="26" height="64" rx="6"/>
+        <rect x="52"  y="34" width="136" height="12" rx="3"/>
+        <rect x="188" y="8"  width="26" height="64" rx="6"/>
+        <rect x="216" y="22" width="18" height="36" rx="4"/>
+      </g>
+    </symbol>
+    <symbol id="barra" viewBox="0 0 1400 260">
+      <g fill="currentColor">
+        <rect x="0"    y="122" width="1400" height="16" rx="4"/>
+        <rect x="150"  y="100" width="36" height="60" rx="3"/>
+        <rect x="1214" y="100" width="36" height="60" rx="3"/>
+        <rect x="190"  y="20"  width="44" height="220" rx="14"/>
+        <rect x="240"  y="40"  width="38" height="180" rx="12"/>
+        <rect x="284"  y="60"  width="30" height="140" rx="10"/>
+        <rect x="320"  y="80"  width="22" height="100" rx="8"/>
+        <rect x="1166" y="20"  width="44" height="220" rx="14"/>
+        <rect x="1122" y="40"  width="38" height="180" rx="12"/>
+        <rect x="1086" y="60"  width="30" height="140" rx="10"/>
+        <rect x="1058" y="80"  width="22" height="100" rx="8"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="fondo" aria-hidden="true">
+  <svg class="pesa" style="width:260px;left:-40px;top:6%;transform:rotate(-24deg)"><use href="#mancuerna"/></svg>
+  <svg class="pesa" style="width:200px;right:-20px;top:14%;transform:rotate(18deg)"><use href="#mancuerna"/></svg>
+  <svg class="pesa" style="width:320px;left:4%;top:44%;transform:rotate(12deg)"><use href="#mancuerna"/></svg>
+  <svg class="pesa" style="width:240px;right:3%;top:52%;transform:rotate(-30deg)"><use href="#mancuerna"/></svg>
+  <svg class="pesa" style="width:180px;left:38%;top:2%;transform:rotate(6deg)"><use href="#mancuerna"/></svg>
+  <svg class="pesa" style="width:220px;left:-30px;top:78%;transform:rotate(-8deg)"><use href="#mancuerna"/></svg>
+  <svg class="barra" viewBox="0 0 1400 260"><use href="#barra"/></svg>
+  <div class="piso"></div>
+</div>
+
+<main>
+  <header>
+    <h1>Calculadora de <span>IMC</span></h1>
+    <p>Índice de masa corporal, peso ideal y calorías diarias.</p>
+  </header>
+
+  <div class="grid">
+    <!-- Formulario -->
+    <section class="card">
+      <h2>Tus datos</h2>
+      <form id="form" novalidate>
+        <div class="campo">
+          <label>Sistema de unidades</label>
+          <div class="seg" id="unidades">
+            <button type="button" data-u="metrico" aria-pressed="true">Métrico (kg, cm)</button>
+            <button type="button" data-u="imperial" aria-pressed="false">Imperial (lb, ft)</button>
+          </div>
+        </div>
+        <div class="fila">
+          <div>
+            <label for="sexo">Sexo</label>
+            <select id="sexo"><option value="h">Hombre</option><option value="m">Mujer</option></select>
+          </div>
+          <div>
+            <label for="edad">Edad (años)</label>
+            <input id="edad" type="number" inputmode="numeric" min="15" max="100" value="30">
+          </div>
+        </div>
+        <div class="campo">
+          <label for="peso" id="lblPeso">Peso (kg)</label>
+          <input id="peso" type="text" inputmode="decimal" placeholder="70">
+        </div>
+        <div class="campo" id="alturaMetrica">
+          <label for="altura">Estatura (cm)</label>
+          <input id="altura" type="text" inputmode="decimal" placeholder="175">
+        </div>
+        <div class="fila" id="alturaImperial" hidden>
+          <div><label for="pies">Pies</label><input id="pies" type="number" inputmode="numeric" min="0" placeholder="5"></div>
+          <div><label for="pulgadas">Pulgadas</label><input id="pulgadas" type="number" inputmode="decimal" min="0" placeholder="9"></div>
+        </div>
+        <div class="campo">
+          <label for="actividad">Nivel de actividad</label>
+          <select id="actividad">
+            <option value="1.2">Sedentario (poco o nada de ejercicio)</option>
+            <option value="1.375">Ligero (1–3 días/semana)</option>
+            <option value="1.55" selected>Moderado (3–5 días/semana)</option>
+            <option value="1.725">Intenso (6–7 días/semana)</option>
+            <option value="1.9">Atleta (doble sesión)</option>
+          </select>
+        </div>
+        <button class="btn" type="submit">Calcular</button>
+        <div class="error" id="error" role="alert"></div>
+      </form>
+    </section>
+
+    <!-- Resultado -->
+    <section class="card" aria-live="polite">
+      <h2>Resultado</h2>
+      <div class="vacio" id="vacio">Llena el formulario para ver tu IMC.</div>
+      <div id="resultado" hidden>
+        <div class="imc-valor" id="imcValor">0</div>
+        <span class="categoria" id="categoria"></span>
+
+        <div class="medidor" id="medidor"></div>
+        <div class="escala"><span>15</span><span>18.5</span><span>25</span><span>30</span><span>35</span><span>40</span></div>
+
+        <div class="datos">
+          <div class="dato"><small>Rango de peso saludable</small><b id="rango">—</b></div>
+          <div class="dato"><small>Para llegar al rango</small><b id="diferencia">—</b></div>
+          <div class="dato"><small>Metabolismo basal</small><b id="tmb">—</b></div>
+          <div class="dato"><small>Calorías de mantenimiento</small><b id="mant">—</b></div>
+          <div class="dato"><small>Para bajar (−500)</small><b id="bajar">—</b></div>
+          <div class="dato"><small>Para subir (+300)</small><b id="subir">—</b></div>
+        </div>
+        <div class="consejo" id="consejo"></div>
+      </div>
+    </section>
+
+    <!-- Historial -->
+    <section class="card full">
+      <div class="cab-hist">
+        <h2>Historial de mediciones</h2>
+        <button class="btn sec" id="borrar" type="button">Borrar historial</button>
+      </div>
+      <canvas id="grafica" hidden></canvas>
+      <div class="vacio" id="histVacio">Aún no hay mediciones guardadas.</div>
+      <div class="tabla-wrap">
+        <table id="tabla" hidden>
+          <thead><tr><th>Fecha</th><th>Peso</th><th>Estatura</th><th>IMC</th><th>Categoría</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <footer>El IMC es una referencia general; no sustituye la valoración de un profesional de la salud.</footer>
+</main>
+
+<script>
+"use strict";
+
+const CATEGORIAS = [
+  { max: 18.5, nombre: "Bajo peso",          color: "var(--c-bajo)",   hex: "#3b9cff",
+    consejo: "Considera aumentar tu ingesta calórica con alimentos nutritivos y entrenamiento de fuerza para ganar masa muscular." },
+  { max: 25,   nombre: "Peso normal",        color: "var(--c-normal)", hex: "#2ecc71",
+    consejo: "¡Vas bien! Mantén una alimentación equilibrada y combina fuerza con cardio para conservar tu salud." },
+  { max: 30,   nombre: "Sobrepeso",          color: "var(--c-sobre)",  hex: "#f4c20d",
+    consejo: "Un ligero déficit calórico y 3–4 sesiones semanales de pesas y cardio ayudan a llegar al rango saludable." },
+  { max: 35,   nombre: "Obesidad grado I",   color: "var(--c-ob1)",    hex: "#ff8a1f",
+    consejo: "Conviene iniciar un plan gradual de alimentación y actividad. Una consulta médica puede guiarte mejor." },
+  { max: 40,   nombre: "Obesidad grado II",  color: "var(--c-ob2)",    hex: "#ff4d3d",
+    consejo: "Se recomienda acompañamiento médico y nutricional para un plan seguro y sostenible." },
+  { max: Infinity, nombre: "Obesidad grado III", color: "var(--c-ob3)", hex: "#b3122b",
+    consejo: "Es importante buscar valoración médica profesional cuanto antes." },
+];
+const MIN_ESCALA = 15, MAX_ESCALA = 40;
+const CLAVE = "imc-historial-v1";
+
+let unidad = "metrico";
+const $ = id => document.getElementById(id);
+
+// ---------- Cálculos ----------
+function calcularIMC(pesoKg, alturaM) {
+  if (pesoKg <= 0 || alturaM <= 0) throw new Error("El peso y la estatura deben ser mayores que cero.");
+  return pesoKg / (alturaM ** 2);
+}
+function clasificar(imc) { return CATEGORIAS.find(c => imc < c.max); }
+
+// Mifflin-St Jeor
+function metabolismoBasal({ sexo, edad, pesoKg, alturaM }) {
+  const base = 10 * pesoKg + 6.25 * alturaM * 100 - 5 * edad;
+  return sexo === "h" ? base + 5 : base - 161;
+}
+
+function numero(texto) { return parseFloat(String(texto).trim().replace(",", ".")); }
+
+// ---------- Unidades ----------
+document.querySelectorAll("#unidades button").forEach(b => b.addEventListener("click", () => {
+  unidad = b.dataset.u;
+  document.querySelectorAll("#unidades button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  const imp = unidad === "imperial";
+  $("lblPeso").textContent = imp ? "Peso (lb)" : "Peso (kg)";
+  $("peso").placeholder = imp ? "155" : "70";
+  $("alturaMetrica").hidden = imp;
+  $("alturaImperial").hidden = !imp;
+}));
+
+function leerEntrada() {
+  const edad = parseInt($("edad").value, 10);
+  const peso = numero($("peso").value);
+  if (!(edad >= 15 && edad <= 100)) throw new Error("Ingresa una edad entre 15 y 100 años.");
+  if (!(peso > 0)) throw new Error("Ingresa un peso válido.");
+
+  let pesoKg, alturaM;
+  if (unidad === "metrico") {
+    let cm = numero($("altura").value);
+    if (!(cm > 0)) throw new Error("Ingresa una estatura válida.");
+    if (cm < 3) cm *= 100;            // escribió metros (ej. 1.75)
+    pesoKg = peso; alturaM = cm / 100;
+  } else {
+    const pies = numero($("pies").value) || 0, pulg = numero($("pulgadas").value) || 0;
+    const totalPulg = pies * 12 + pulg;
+    if (!(totalPulg > 0)) throw new Error("Ingresa una estatura válida.");
+    pesoKg = peso * 0.45359237; alturaM = totalPulg * 0.0254;
+  }
+  if (pesoKg < 20 || pesoKg > 400) throw new Error("El peso parece fuera de rango.");
+  if (alturaM < 1 || alturaM > 2.5) throw new Error("La estatura parece fuera de rango.");
+  return { sexo: $("sexo").value, edad, pesoKg, alturaM, actividad: parseFloat($("actividad").value) };
+}
+
+// ---------- Presentación ----------
+const fmtPeso = kg => unidad === "metrico" ? `${kg.toFixed(1)} kg` : `${(kg / 0.45359237).toFixed(1)} lb`;
+const kcal = n => `${Math.round(n).toLocaleString("es-MX")} kcal`;
+
+function construirMedidor() {
+  const tramos = [[15, 18.5], [18.5, 25], [25, 30], [30, 35], [35, 40]];
+  const total = MAX_ESCALA - MIN_ESCALA;
+  const m = $("medidor");
+  m.innerHTML = "";
+  // 5 tramos visibles (el 6º, grado III, se funde con el último)
+  tramos.forEach(([a, b], i) => {
+    const d = document.createElement("div");
+    d.style.width = `${((b - a) / total) * 100}%`;
+    d.style.background = CATEGORIAS[i].color;
+    m.appendChild(d);
+  });
+  const aguja = document.createElement("span");
+  aguja.className = "aguja"; aguja.id = "aguja"; aguja.style.left = "0%";
+  m.appendChild(aguja);
+  // la escala de texto se reparte por porcentaje real
+  const esc = document.querySelector(".escala");
+  esc.innerHTML = "";
+  [15, 18.5, 25, 30, 35, 40].forEach(v => {
+    const s = document.createElement("span");
+    s.textContent = v;
+    s.style.position = "absolute";
+    s.style.left = `${((v - MIN_ESCALA) / total) * 100}%`;
+    s.style.transform = "translateX(-50%)";
+    esc.appendChild(s);
+  });
+  esc.style.position = "relative"; esc.style.height = "16px";
+}
+
+function mostrar(datos) {
+  const { pesoKg, alturaM } = datos;
+  const imc = calcularIMC(pesoKg, alturaM);
+  const cat = clasificar(imc);
+
+  $("vacio").hidden = true; $("resultado").hidden = false;
+  $("imcValor").textContent = imc.toFixed(1);
+  const badge = $("categoria");
+  badge.textContent = cat.nombre; badge.style.background = cat.color;
+
+  const pos = Math.min(Math.max((imc - MIN_ESCALA) / (MAX_ESCALA - MIN_ESCALA), 0), 1) * 100;
+  requestAnimationFrame(() => { $("aguja").style.left = `${pos}%`; });
+
+  const minKg = 18.5 * alturaM ** 2, maxKg = 24.9 * alturaM ** 2;
+  $("rango").textContent = `${fmtPeso(minKg)} – ${fmtPeso(maxKg)}`;
+  if (pesoKg > maxKg)      $("diferencia").textContent = `Bajar ${fmtPeso(pesoKg - maxKg)}`;
+  else if (pesoKg < minKg) $("diferencia").textContent = `Subir ${fmtPeso(minKg - pesoKg)}`;
+  else                     $("diferencia").textContent = "Ya estás en el rango";
+
+  const tmb = metabolismoBasal(datos), mant = tmb * datos.actividad;
+  $("tmb").textContent = kcal(tmb);
+  $("mant").textContent = kcal(mant);
+  $("bajar").textContent = kcal(Math.max(mant - 500, 1200));
+  $("subir").textContent = kcal(mant + 300);
+  $("consejo").textContent = cat.consejo;
+  return { imc, cat };
+}
+
+// ---------- Historial ----------
+function leerHistorial() {
+  try { return JSON.parse(localStorage.getItem(CLAVE)) || []; } catch { return []; }
+}
+function guardarHistorial(h) {
+  try { localStorage.setItem(CLAVE, JSON.stringify(h)); } catch {}
+}
+
+function pintarHistorial() {
+  const h = leerHistorial();
+  const hay = h.length > 0;
+  $("histVacio").hidden = hay; $("tabla").hidden = !hay; $("grafica").hidden = h.length < 2;
+  const tb = $("tabla").querySelector("tbody");
+  tb.innerHTML = "";
+  [...h].reverse().forEach(r => {
+    const tr = document.createElement("tr");
+    const cat = CATEGORIAS.find(c => c.nombre === r.cat) || CATEGORIAS[0];
+    const celdas = [
+      new Date(r.fecha).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }),
+      `${r.pesoKg.toFixed(1)} kg`, `${(r.alturaM * 100).toFixed(0)} cm`, r.imc.toFixed(1),
+    ];
+    celdas.forEach(t => { const td = document.createElement("td"); td.textContent = t; tr.appendChild(td); });
+    const td = document.createElement("td");
+    const p = document.createElement("span"); p.className = "punto"; p.style.background = cat.hex;
+    td.append(p, r.cat); tr.appendChild(td);
+    tb.appendChild(tr);
+  });
+  if (h.length >= 2) dibujarGrafica(h);
+}
+
+function dibujarGrafica(h) {
+  const cv = $("grafica"), dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, alto = cv.clientHeight;
+  cv.width = w * dpr; cv.height = alto * dpr;
+  const g = cv.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, alto);
+  const vals = h.map(r => r.imc);
+  const lo = Math.min(...vals, 18.5) - 1, hi = Math.max(...vals, 25) + 1;
+  const X = i => 10 + (i / (h.length - 1)) * (w - 20);
+  const Y = v => alto - 10 - ((v - lo) / (hi - lo)) * (alto - 20);
+  // banda de peso normal
+  g.fillStyle = "rgba(46,204,113,.12)"; g.fillRect(0, Y(25), w, Y(18.5) - Y(25));
+  g.strokeStyle = "#ff5a1f"; g.lineWidth = 2; g.beginPath();
+  vals.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v)));
+  g.stroke();
+  vals.forEach((v, i) => { g.fillStyle = "#fff"; g.beginPath(); g.arc(X(i), Y(v), 3.5, 0, 7); g.fill(); });
+}
+
+$("borrar").addEventListener("click", () => {
+  if (leerHistorial().length && confirm("¿Borrar todo el historial?")) { guardarHistorial([]); pintarHistorial(); }
+});
+window.addEventListener("resize", () => { const h = leerHistorial(); if (h.length >= 2) dibujarGrafica(h); });
+
+// ---------- Envío ----------
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  $("error").textContent = "";
+  try {
+    const datos = leerEntrada();
+    const { imc, cat } = mostrar(datos);
+    const h = leerHistorial();
+    h.push({ fecha: Date.now(), pesoKg: datos.pesoKg, alturaM: datos.alturaM, imc, cat: cat.nombre });
+    guardarHistorial(h.slice(-30));
+    pintarHistorial();
+  } catch (err) {
+    $("error").textContent = err.message;
+  }
+});
+
+construirMedidor();
+pintarHistorial();
+</script>
+</body>
+</html>
